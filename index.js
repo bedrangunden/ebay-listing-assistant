@@ -1,36 +1,23 @@
 const express = require("express");
+const { Pool } = require("pg");
+
 const app = express();
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 app.get("/", (req, res) => {
   res.send("Sistem çalışıyor 🚀");
 });
 
-// 🔥 ÜRÜN BULMA
-app.get("/search", (req, res) => {
-  const q = req.query.q || "ürün";
-
-  const results = [
-    {
-      name: `${q} LED Light`,
-      profit: "€10",
-      demand: "yüksek",
-      risk: "düşük"
-    },
-    {
-      name: `${q} Organizer Box`,
-      profit: "€8",
-      demand: "orta",
-      risk: "düşük"
-    },
-    {
-      name: `${q} Phone Holder`,
-      profit: "€7",
-      demand: "yüksek",
-      risk: "orta"
-    }
-  ];
-
-  res.json(results);
+app.get("/search", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM products");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).send("DB hata: " + err.message);
+  }
 });
 
 const PORT = process.env.PORT || 4000;
