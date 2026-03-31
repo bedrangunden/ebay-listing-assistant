@@ -22,25 +22,7 @@ app.get("/search", async (req, res) => {
 
 const PORT = process.env.PORT || 4000;
 
-app.listen(PORT, () => {
-  console.log("Server çalışıyor");
-});
-
-await pool.query(`
-CREATE TABLE IF NOT EXISTS products (
-  id SERIAL PRIMARY KEY,
-  name TEXT,
-  profit TEXT,
-  demand TEXT,
-  risk TEXT
-);
-`);
-
-
-
-app.listen(PORT, async () => {
-  console.log("Server çalışıyor");
-
+async function start() {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS products (
@@ -61,9 +43,13 @@ app.listen(PORT, async () => {
       ON CONFLICT DO NOTHING;
     `);
 
-    console.log("DB hazır");
+    app.listen(PORT, () => {
+      console.log("Server çalışıyor");
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Startup error:", err);
+    process.exit(1);
   }
-});
+}
 
+start();
