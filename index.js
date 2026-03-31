@@ -8,7 +8,7 @@ const pool = new Pool({
 });
 
 app.get("/", (req, res) => {
-  res.send("Sistem çalışıyor 🚀");
+  res.sendFile(__dirname + "/index.html");
 });
 
 app.get("/search", async (req, res) => {
