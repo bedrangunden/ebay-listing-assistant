@@ -18,6 +18,11 @@
       margin-bottom: 20px;
     }
 
+    h2 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+    }
+
     .card {
       background: #1e293b;
       border-radius: 16px;
@@ -47,6 +52,14 @@
       cursor: pointer;
     }
 
+    .secondary {
+      background: #475569;
+    }
+
+    .danger {
+      background: #dc2626;
+    }
+
     .muted {
       color: #cbd5e1;
       font-size: 14px;
@@ -63,6 +76,26 @@
       width: auto;
       flex: 1;
     }
+
+    .hidden {
+      display: none;
+    }
+
+    .status {
+      margin: 12px 0;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .button-row button {
+      margin-top: 0;
+    }
   </style>
 </head>
 <body>
@@ -73,7 +106,9 @@
     <button onclick="loadListings()">Listem</button>
   </div>
 
-  <div class="card">
+  <div id="status" class="status"></div>
+
+  <div id="searchSection" class="card">
     <div>Ürün ara</div>
     <input id="keyword" placeholder="örn: led" />
     <button onclick="searchProducts()">Ara</button>
@@ -82,73 +117,135 @@
   <div id="results"></div>
 
   <script>
+    function setStatus(message) {
+      document.getElementById("status").innerText = message || "";
+    }
+
+    function showSearch() {
+      document.getElementById("searchSection").classList.remove("hidden");
+      document.getElementById("results").innerHTML = "";
+      setStatus("Ürün arama ekranındasın.");
+    }
+
     async function searchProducts() {
-      const keyword = document.getElementById("keyword").value || "";
-      const res = await fetch("/search?q=" + encodeURIComponent(keyword));
-      const data = await res.json();
+      try {
+        const keyword = document.getElementById("keyword").value || "";
+        setStatus("Ürünler aranıyor...");
 
-      const results = document.getElementById("results");
-      results.innerHTML = "";
+        const res = await fetch("/search?q=" + encodeURIComponent(keyword));
+        const data = await res.json();
 
-      data.forEach(item => {
-        const el = document.createElement("div");
-        el.className = "card";
-        el.innerHTML = `
-          <h3>${item.name}</h3>
-          <div class="muted">Kar: ${item.profit}</div>
-          <div class="muted">Talep: ${item.demand}</div>
-          <div class="muted">Risk: ${item.risk}</div>
-          <button onclick='addListing(${JSON.stringify(item)})'>Listeye ekle</button>
-        `;
-        results.appendChild(el);
-      });
+        const results = document.getElementById("results");
+        results.innerHTML = "<h2>Bulunan Ürünler</h2>";
+
+        if (!Array.isArray(data) || data.length === 0) {
+          results.innerHTML += `<div class="card">Sonuç bulunamadı.</div>`;
+          setStatus("Sonuç bulunamadı.");
+          return;
+        }
+
+        data.forEach(item => {
+          const el = document.createElement("div");
+          el.className = "card";
+          el.innerHTML = `
+            <h3>${item.name}</h3>
+            <div class="muted">Kar: ${item.profit}</div>
+            <div class="muted">Talep: ${item.demand}</div>
+            <div class="muted">Risk: ${item.risk}</div>
+            <div class="button-row">
+              <button onclick='addListing(${JSON.stringify(item)})'>Listeye ekle</button>
+            </div>
+          `;
+          results.appendChild(el);
+        });
+
+        setStatus(data.length + " ürün bulundu.");
+      } catch (err) {
+        setStatus("Hata: " + err.message);
+      }
     }
 
     async function addListing(item) {
-      const res = await fetch("/add-listing", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(item)
-      });
+      try {
+        setStatus("Ürün listeye ekleniyor...");
 
-      const data = await res.json();
+        const res = await fetch("/add-listing", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(item)
+        });
 
-      if (data.success) {
-        alert("Listeye eklendi: " + item.name);
-      } else {
-        alert("Hata: " + data.error);
+        const data = await res.json();
+
+        if (data.success) {
+          setStatus("Listeye eklendi: " + item.name);
+        } else {
+          setStatus("Hata: " + data.error);
+        }
+      } catch (err) {
+        setStatus("Hata: " + err.message);
       }
     }
 
     async function loadListings() {
-      const res = await fetch("/listings");
-      const data = await res.json();
+      try {
+        document.getElementById("searchSection").classList.add("hidden");
+        setStatus("Kaydedilen ürünler yükleniyor...");
 
-      const results = document.getElementById("results");
-      results.innerHTML = "<h2>Kaydedilen Ürünler</h2>";
+        const res = await fetch("/listings");
+        const data = await res.json();
 
-      if (!data.length) {
-        results.innerHTML += `<div class="card">Henüz ürün eklenmedi.</div>`;
-        return;
+        const results = document.getElementById("results");
+        results.innerHTML = "<h2>Kaydedilen Ürünler</h2>";
+
+        if (!Array.isArray(data) || data.length === 0) {
+          results.innerHTML += `<div class="card">Henüz ürün eklenmedi.</div>`;
+          setStatus("Henüz kayıtlı ürün yok.");
+          return;
+        }
+
+        data.forEach(item => {
+          const el = document.createElement("div");
+          el.className = "card";
+          el.innerHTML = `
+            <h3>${item.name}</h3>
+            <div class="muted">Kar: ${item.profit}</div>
+            <div class="muted">Talep: ${item.demand}</div>
+            <div class="muted">Risk: ${item.risk}</div>
+            <div class="button-row">
+              <button class="danger" onclick="deleteListing(${item.id})">Sil</button>
+            </div>
+          `;
+          results.appendChild(el);
+        });
+
+        setStatus(data.length + " kayıtlı ürün gösteriliyor.");
+      } catch (err) {
+        setStatus("Hata: " + err.message);
       }
-
-      data.forEach(item => {
-        const el = document.createElement("div");
-        el.className = "card";
-        el.innerHTML = `
-          <h3>${item.name}</h3>
-          <div class="muted">Kar: ${item.profit}</div>
-          <div class="muted">Talep: ${item.demand}</div>
-          <div class="muted">Risk: ${item.risk}</div>
-        `;
-        results.appendChild(el);
-      });
     }
 
-    function showSearch() {
-      document.getElementById("results").innerHTML = "";
+    async function deleteListing(id) {
+      try {
+        setStatus("Ürün siliniyor...");
+
+        const res = await fetch("/delete-listing/" + id, {
+          method: "DELETE"
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          setStatus("Ürün silindi.");
+          loadListings();
+        } else {
+          setStatus("Hata: " + data.error);
+        }
+      } catch (err) {
+        setStatus("Hata: " + err.message);
+      }
     }
   </script>
 </body>
