@@ -1,159 +1,52 @@
-const express = require("express");
-const { Pool } = require("pg");
-const path = require("path");
+import express from "express";
+import fetch from "node-fetch";
 
 const app = express();
 app.use(express.json());
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-
-// 🔍 SEARCH
-app.get("/search", async (req, res) => {
-  try {
-    const q = (req.query.q || "").toLowerCase();
-
-    let result;
-    if (q) {
-      result = await pool.query(
-        "SELECT * FROM products WHERE LOWER(name) LIKE $1 ORDER BY id DESC",
-        [`%${q}%`]
-      );
-    } else {
-      result = await pool.query("SELECT * FROM products ORDER BY id DESC");
-    }
-
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 📦 LISTINGS
-app.get("/listings", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM saved_listings ORDER BY id DESC"
-    );
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ➕ ADD LISTING
-app.post("/add-listing", async (req, res) => {
-  try {
-    const { name, profit, demand, risk } = req.body;
-
-    if (!name || !profit || !demand || !risk) {
-      return res.status(400).json({ success: false, error: "Eksik veri" });
-    }
-
-    await pool.query(
-      `
-      INSERT INTO saved_listings (name, profit, demand, risk)
-      VALUES ($1, $2, $3, $4)
-      `,
-      [name, profit, demand, risk]
-    );
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ❌ DELETE
-app.delete("/delete-listing/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    await pool.query("DELETE FROM saved_listings WHERE id = $1", [id]);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 🤖 AI ANALYZE
 app.post("/analyze", async (req, res) => {
+  const { name, profit, demand, risk } = req.body;
+
   try {
-    const { name, profit, demand, risk } = req.body;
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "Sen e-ticaret uzmanısın."
+          },
+          {
+            role: "user",
+            content: `
+Ürün: ${name}
+Kar: ${profit}
+Talep: ${demand}
+Risk: ${risk}
 
-    let score = 0;
-
-    if (demand === "yüksek") score += 40;
-    if (demand === "orta") score += 20;
-
-    if (risk === "düşük") score += 30;
-    if (risk === "orta") score += 10;
-
-    const profitValue = parseInt(profit.replace("€", ""));
-    score += profitValue;
-
-    let recommendation = "Orta seviye ürün";
-    if (score > 70) recommendation = "🔥 Çok iyi ürün, satılır";
-    else if (score > 50) recommendation = "👍 Satılabilir";
-    else recommendation = "⚠️ Riskli ürün";
-
-    res.json({
-      score,
-      recommendation
+Bunu analiz et:
+- Satılır mı?
+- Rekabet durumu
+- Öneri ver
+Kısa ve net yaz.
+            `
+          }
+        ]
+      })
     });
 
+    const data = await response.json();
+    const result = data.choices[0].message.content;
+
+    res.json({ result });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "AI hata verdi" });
   }
 });
 
-// 🚀 START
-const PORT = process.env.PORT || 4000;
-
-async function start() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        profit TEXT NOT NULL,
-        demand TEXT NOT NULL,
-        risk TEXT NOT NULL
-      );
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS saved_listings (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        profit TEXT NOT NULL,
-        demand TEXT NOT NULL,
-        risk TEXT NOT NULL
-      );
-    `);
-
-    await pool.query(`
-      INSERT INTO products (name, profit, demand, risk)
-      SELECT * FROM (
-        VALUES
-          ('LED Light', '€10', 'yüksek', 'düşük'),
-          ('Organizer Box', '€8', 'orta', 'düşük'),
-          ('Phone Holder', '€7', 'yüksek', 'orta')
-      ) AS v(name, profit, demand, risk)
-      WHERE NOT EXISTS (SELECT 1 FROM products);
-    `);
-
-    app.listen(PORT, () => {
-      console.log("Server çalışıyor");
-    });
-  } catch (err) {
-    console.error("Startup error:", err);
-    process.exit(1);
-  }
-}
-
-start();
+app.listen(3000, () => console.log("Server çalışıyor 🚀"));
