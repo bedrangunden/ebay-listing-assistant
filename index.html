@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>eBay Listing Assistant</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -18,9 +19,20 @@
       margin-bottom: 20px;
     }
 
-    h2 {
-      margin: 0 0 12px 0;
-      font-size: 18px;
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .top-actions button {
+      flex: 1;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: #7c3aed;
+      color: white;
+      font-weight: bold;
     }
 
     .card {
@@ -66,187 +78,172 @@
       margin-top: 4px;
     }
 
-    .top-actions {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-
-    .top-actions button {
-      width: auto;
-      flex: 1;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .status {
-      margin: 12px 0;
-      color: #cbd5e1;
-      font-size: 14px;
-    }
-
     .button-row {
       display: flex;
       gap: 10px;
       margin-top: 12px;
     }
 
-    .button-row button {
-      margin-top: 0;
+    .status {
+      margin: 12px 0;
+      color: #cbd5e1;
+    }
+
+    .hidden {
+      display: none;
     }
   </style>
 </head>
+
 <body>
-  <h1>eBay Listing Assistant</h1>
 
-  <div class="top-actions">
-    <button onclick="showSearch()">Ürün Ara</button>
-    <button onclick="loadListings()">Listem</button>
-  </div>
+<h1>eBay Listing Assistant</h1>
 
-  <div id="status" class="status"></div>
+<div class="top-actions">
+  <button onclick="showSearch()">Ürün Ara</button>
+  <button onclick="loadListings()">Listem</button>
+</div>
 
-  <div id="searchSection" class="card">
-    <div>Ürün ara</div>
-    <input id="keyword" placeholder="örn: led" />
-    <button onclick="searchProducts()">Ara</button>
-  </div>
+<div id="status" class="status"></div>
 
-  <div id="results"></div>
+<div id="searchSection" class="card">
+  <div>Ürün ara</div>
+  <input id="keyword" placeholder="örn: led" />
+  <button onclick="searchProducts()">Ara</button>
+</div>
 
-  <script>
-    function setStatus(message) {
-      document.getElementById("status").innerText = message || "";
-    }
+<div id="results"></div>
 
-    function showSearch() {
-      document.getElementById("searchSection").classList.remove("hidden");
-      document.getElementById("results").innerHTML = "";
-      setStatus("Ürün arama ekranındasın.");
-    }
+<script>
 
-    async function searchProducts() {
-      try {
-        const keyword = document.getElementById("keyword").value || "";
-        setStatus("Ürünler aranıyor...");
+function setStatus(msg) {
+  document.getElementById("status").innerText = msg || "";
+}
 
-        const res = await fetch("/search?q=" + encodeURIComponent(keyword));
-        const data = await res.json();
+function showSearch() {
+  document.getElementById("searchSection").classList.remove("hidden");
+  document.getElementById("results").innerHTML = "";
+  setStatus("Ürün arama ekranı");
+}
 
-        const results = document.getElementById("results");
-        results.innerHTML = "<h2>Bulunan Ürünler</h2>";
+async function searchProducts() {
+  const keyword = document.getElementById("keyword").value || "";
+  setStatus("Aranıyor...");
 
-        if (!Array.isArray(data) || data.length === 0) {
-          results.innerHTML += `<div class="card">Sonuç bulunamadı.</div>`;
-          setStatus("Sonuç bulunamadı.");
-          return;
-        }
+  const res = await fetch("/search?q=" + keyword);
+  const data = await res.json();
 
-        data.forEach(item => {
-          const el = document.createElement("div");
-          el.className = "card";
-          el.innerHTML = `
-            <h3>${item.name}</h3>
-            <div class="muted">Kar: ${item.profit}</div>
-            <div class="muted">Talep: ${item.demand}</div>
-            <div class="muted">Risk: ${item.risk}</div>
-            <div class="button-row">
-              <button onclick='addListing(${JSON.stringify(item)})'>Listeye ekle</button>
-            </div>
-          `;
-          results.appendChild(el);
-        });
+  const results = document.getElementById("results");
+  results.innerHTML = "<h2>Bulunan Ürünler</h2>";
 
-        setStatus(data.length + " ürün bulundu.");
-      } catch (err) {
-        setStatus("Hata: " + err.message);
-      }
-    }
+  data.forEach(item => {
+    const el = document.createElement("div");
+    el.className = "card";
 
-    async function addListing(item) {
-      try {
-        setStatus("Ürün listeye ekleniyor...");
+    el.innerHTML = `
+      <h3>${item.name}</h3>
+      <div class="muted">Kar: ${item.profit}</div>
+      <div class="muted">Talep: ${item.demand}</div>
+      <div class="muted">Risk: ${item.risk}</div>
 
-        const res = await fetch("/add-listing", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(item)
-        });
+      <div class="button-row">
+        <button onclick='addListing(${JSON.stringify(item)})'>
+          Listeye ekle
+        </button>
 
-        const data = await res.json();
+        <button class="secondary" onclick='analyzeProduct(${JSON.stringify(item)})'>
+          AI Analiz
+        </button>
+      </div>
+    `;
 
-        if (data.success) {
-          setStatus("Listeye eklendi: " + item.name);
-        } else {
-          setStatus("Hata: " + data.error);
-        }
-      } catch (err) {
-        setStatus("Hata: " + err.message);
-      }
-    }
+    results.appendChild(el);
+  });
 
-    async function loadListings() {
-      try {
-        document.getElementById("searchSection").classList.add("hidden");
-        setStatus("Kaydedilen ürünler yükleniyor...");
+  setStatus(data.length + " ürün bulundu");
+}
 
-        const res = await fetch("/listings");
-        const data = await res.json();
+async function addListing(item) {
+  setStatus("Ekleniyor...");
 
-        const results = document.getElementById("results");
-        results.innerHTML = "<h2>Kaydedilen Ürünler</h2>";
+  const res = await fetch("/add-listing", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(item)
+  });
 
-        if (!Array.isArray(data) || data.length === 0) {
-          results.innerHTML += `<div class="card">Henüz ürün eklenmedi.</div>`;
-          setStatus("Henüz kayıtlı ürün yok.");
-          return;
-        }
+  const data = await res.json();
 
-        data.forEach(item => {
-          const el = document.createElement("div");
-          el.className = "card";
-          el.innerHTML = `
-            <h3>${item.name}</h3>
-            <div class="muted">Kar: ${item.profit}</div>
-            <div class="muted">Talep: ${item.demand}</div>
-            <div class="muted">Risk: ${item.risk}</div>
-            <div class="button-row">
-              <button class="danger" onclick="deleteListing(${item.id})">Sil</button>
-            </div>
-          `;
-          results.appendChild(el);
-        });
+  if (data.success) {
+    setStatus("Eklendi ✅");
+  } else {
+    setStatus("Hata ❌");
+  }
+}
 
-        setStatus(data.length + " kayıtlı ürün gösteriliyor.");
-      } catch (err) {
-        setStatus("Hata: " + err.message);
-      }
-    }
+async function loadListings() {
+  document.getElementById("searchSection").classList.add("hidden");
+  setStatus("Yükleniyor...");
 
-    async function deleteListing(id) {
-      try {
-        setStatus("Ürün siliniyor...");
+  const res = await fetch("/listings");
+  const data = await res.json();
 
-        const res = await fetch("/delete-listing/" + id, {
-          method: "DELETE"
-        });
+  const results = document.getElementById("results");
+  results.innerHTML = "<h2>Kaydedilen Ürünler</h2>";
 
-        const data = await res.json();
+  data.forEach(item => {
+    const el = document.createElement("div");
+    el.className = "card";
 
-        if (data.success) {
-          setStatus("Ürün silindi.");
-          loadListings();
-        } else {
-          setStatus("Hata: " + data.error);
-        }
-      } catch (err) {
-        setStatus("Hata: " + err.message);
-      }
-    }
-  </script>
+    el.innerHTML = `
+      <h3>${item.name}</h3>
+      <div class="muted">Kar: ${item.profit}</div>
+      <div class="muted">Talep: ${item.demand}</div>
+      <div class="muted">Risk: ${item.risk}</div>
+
+      <div class="button-row">
+        <button class="danger" onclick="deleteListing(${item.id})">
+          Sil
+        </button>
+      </div>
+    `;
+
+    results.appendChild(el);
+  });
+
+  setStatus(data.length + " kayıtlı ürün");
+}
+
+async function deleteListing(id) {
+  setStatus("Siliniyor...");
+
+  await fetch("/delete-listing/" + id, {
+    method: "DELETE"
+  });
+
+  loadListings();
+}
+
+async function analyzeProduct(item) {
+  setStatus("AI analiz...");
+
+  const res = await fetch("/analyze", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(item)
+  });
+
+  const data = await res.json();
+
+  alert(
+    "Skor: " + data.score +
+    "\n" + data.recommendation
+  );
+
+  setStatus("Analiz tamamlandı");
+}
+
+</script>
+
 </body>
 </html>
