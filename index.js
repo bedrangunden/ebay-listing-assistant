@@ -13,6 +13,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
+// 🔍 SEARCH
 app.get("/search", async (req, res) => {
   try {
     const q = (req.query.q || "").toLowerCase();
@@ -33,6 +34,7 @@ app.get("/search", async (req, res) => {
   }
 });
 
+// 📦 LISTINGS
 app.get("/listings", async (req, res) => {
   try {
     const result = await pool.query(
@@ -44,6 +46,7 @@ app.get("/listings", async (req, res) => {
   }
 });
 
+// ➕ ADD LISTING
 app.post("/add-listing", async (req, res) => {
   try {
     const { name, profit, demand, risk } = req.body;
@@ -66,6 +69,7 @@ app.post("/add-listing", async (req, res) => {
   }
 });
 
+// ❌ DELETE
 app.delete("/delete-listing/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -76,6 +80,38 @@ app.delete("/delete-listing/:id", async (req, res) => {
   }
 });
 
+// 🤖 AI ANALYZE
+app.post("/analyze", async (req, res) => {
+  try {
+    const { name, profit, demand, risk } = req.body;
+
+    let score = 0;
+
+    if (demand === "yüksek") score += 40;
+    if (demand === "orta") score += 20;
+
+    if (risk === "düşük") score += 30;
+    if (risk === "orta") score += 10;
+
+    const profitValue = parseInt(profit.replace("€", ""));
+    score += profitValue;
+
+    let recommendation = "Orta seviye ürün";
+    if (score > 70) recommendation = "🔥 Çok iyi ürün, satılır";
+    else if (score > 50) recommendation = "👍 Satılabilir";
+    else recommendation = "⚠️ Riskli ürün";
+
+    res.json({
+      score,
+      recommendation
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 🚀 START
 const PORT = process.env.PORT || 4000;
 
 async function start() {
