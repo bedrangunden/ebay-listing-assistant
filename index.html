@@ -1,248 +1,198 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>eBay Listing Assistant</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>eBay Listing Assistant</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
-      margin: 0;
-      padding: 20px;
-    }
+<style>
+body {
+  font-family: Arial;
+  background:#0f172a;
+  color:white;
+  margin:0;
+  padding:20px;
+}
 
-    h1 {
-      font-size: 32px;
-      margin-bottom: 20px;
-    }
+h1 { margin-bottom:20px; }
 
-    .top-actions {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
+.tabs {
+  display:flex;
+  gap:10px;
+  margin-bottom:20px;
+}
 
-    .top-actions button {
-      flex: 1;
-      padding: 14px;
-      border-radius: 12px;
-      border: none;
-      background: #7c3aed;
-      color: white;
-      font-weight: bold;
-    }
+.tab {
+  flex:1;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  background:#7c3aed;
+  color:white;
+  font-weight:bold;
+}
 
-    .card {
-      background: #1e293b;
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
+.card {
+  background:#1e293b;
+  padding:16px;
+  border-radius:16px;
+  margin-bottom:12px;
+}
 
-    input, button {
-      width: 100%;
-      padding: 14px;
-      border-radius: 12px;
-      border: none;
-      margin-top: 8px;
-      font-size: 16px;
-      box-sizing: border-box;
-    }
+input, button {
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:none;
+  margin-top:8px;
+}
 
-    input {
-      background: #334155;
-      color: white;
-    }
+input { background:#334155; color:white; }
 
-    button {
-      background: #7c3aed;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
+.btn {
+  background:#7c3aed;
+  color:white;
+  font-weight:bold;
+}
 
-    .secondary {
-      background: #475569;
-    }
+.btn-secondary {
+  background:#475569;
+}
 
-    .danger {
-      background: #dc2626;
-    }
-
-    .muted {
-      color: #cbd5e1;
-      font-size: 14px;
-      margin-top: 4px;
-    }
-
-    .button-row {
-      display: flex;
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    .status {
-      margin: 12px 0;
-      color: #cbd5e1;
-    }
-
-    .hidden {
-      display: none;
-    }
-  </style>
+.btn-danger {
+  background:#dc2626;
+}
+</style>
 </head>
 
 <body>
 
 <h1>eBay Listing Assistant</h1>
 
-<div class="top-actions">
-  <button onclick="showSearch()">Ürün Ara</button>
-  <button onclick="loadListings()">Listem</button>
+<div class="tabs">
+  <button class="tab" onclick="showSearch()">Ürün Ara</button>
+  <button class="tab" onclick="showList()">Listem</button>
 </div>
 
-<div id="status" class="status"></div>
+<div id="status"></div>
 
-<div id="searchSection" class="card">
-  <div>Ürün ara</div>
-  <input id="keyword" placeholder="örn: led" />
-  <button onclick="searchProducts()">Ara</button>
+<div id="searchView">
+  <div class="card">
+    <div>Ürün ara</div>
+    <input id="searchInput" placeholder="örn: led"/>
+    <button class="btn" onclick="search()">Ara</button>
+  </div>
+
+  <div id="results"></div>
 </div>
 
-<div id="results"></div>
+<div id="listView" style="display:none;">
+  <h2>Kaydedilen Ürünler</h2>
+  <div id="listings"></div>
+</div>
 
 <script>
+function setStatus(t){ document.getElementById("status").innerText = t; }
 
-function setStatus(msg) {
-  document.getElementById("status").innerText = msg || "";
+function showSearch(){
+  document.getElementById("searchView").style.display="block";
+  document.getElementById("listView").style.display="none";
 }
 
-function showSearch() {
-  document.getElementById("searchSection").classList.remove("hidden");
-  document.getElementById("results").innerHTML = "";
-  setStatus("Ürün arama ekranı");
-}
-
-async function searchProducts() {
-  const keyword = document.getElementById("keyword").value || "";
-  setStatus("Aranıyor...");
-
-  const res = await fetch("/search?q=" + keyword);
-  const data = await res.json();
-
-  const results = document.getElementById("results");
-  results.innerHTML = "<h2>Bulunan Ürünler</h2>";
-
-  data.forEach(item => {
-    const el = document.createElement("div");
-    el.className = "card";
-
-    el.innerHTML = `
-      <h3>${item.name}</h3>
-      <div class="muted">Kar: ${item.profit}</div>
-      <div class="muted">Talep: ${item.demand}</div>
-      <div class="muted">Risk: ${item.risk}</div>
-
-      <div class="button-row">
-        <button onclick='addListing(${JSON.stringify(item)})'>
-          Listeye ekle
-        </button>
-
-        <button class="secondary" onclick='analyzeProduct(${JSON.stringify(item)})'>
-          AI Analiz
-        </button>
-      </div>
-    `;
-
-    results.appendChild(el);
-  });
-
-  setStatus(data.length + " ürün bulundu");
-}
-
-async function addListing(item) {
-  setStatus("Ekleniyor...");
-
-  const res = await fetch("/add-listing", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(item)
-  });
-
-  const data = await res.json();
-
-  if (data.success) {
-    setStatus("Eklendi ✅");
-  } else {
-    setStatus("Hata ❌");
-  }
-}
-
-async function loadListings() {
-  document.getElementById("searchSection").classList.add("hidden");
-  setStatus("Yükleniyor...");
-
-  const res = await fetch("/listings");
-  const data = await res.json();
-
-  const results = document.getElementById("results");
-  results.innerHTML = "<h2>Kaydedilen Ürünler</h2>";
-
-  data.forEach(item => {
-    const el = document.createElement("div");
-    el.className = "card";
-
-    el.innerHTML = `
-      <h3>${item.name}</h3>
-      <div class="muted">Kar: ${item.profit}</div>
-      <div class="muted">Talep: ${item.demand}</div>
-      <div class="muted">Risk: ${item.risk}</div>
-
-      <div class="button-row">
-        <button class="danger" onclick="deleteListing(${item.id})">
-          Sil
-        </button>
-      </div>
-    `;
-
-    results.appendChild(el);
-  });
-
-  setStatus(data.length + " kayıtlı ürün");
-}
-
-async function deleteListing(id) {
-  setStatus("Siliniyor...");
-
-  await fetch("/delete-listing/" + id, {
-    method: "DELETE"
-  });
-
+function showList(){
+  document.getElementById("searchView").style.display="none";
+  document.getElementById("listView").style.display="block";
   loadListings();
 }
 
-async function analyzeProduct(item) {
-  setStatus("AI analiz...");
-
-  const res = await fetch("/analyze", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(item)
-  });
-
+async function search(){
+  const q = document.getElementById("searchInput").value;
+  const res = await fetch("/search?q="+q);
   const data = await res.json();
 
-  alert(
-    "Skor: " + data.score +
-    "\n" + data.recommendation
-  );
+  const container = document.getElementById("results");
+  container.innerHTML="";
 
-  setStatus("Analiz tamamlandı");
+  data.forEach(item=>{
+    const div = document.createElement("div");
+    div.className="card";
+
+    div.innerHTML = `
+      <h3>${item.name}</h3>
+      <div>Kar: ${item.profit}</div>
+      <div>Talep: ${item.demand}</div>
+      <div>Risk: ${item.risk}</div>
+
+      <button class="btn" onclick='addListing(${JSON.stringify(item)})'>Listeye ekle</button>
+      <button class="btn-secondary" onclick='analyzeProduct(${JSON.stringify(item)})'>AI Analiz</button>
+    `;
+
+    container.appendChild(div);
+  });
 }
 
+async function addListing(item){
+  await fetch("/add-listing",{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify(item)
+  });
+
+  alert("Eklendi");
+}
+
+async function loadListings(){
+  const res = await fetch("/listings");
+  const data = await res.json();
+
+  const container = document.getElementById("listings");
+  container.innerHTML="";
+
+  data.forEach(item=>{
+    const div = document.createElement("div");
+    div.className="card";
+
+    div.innerHTML = `
+      <h3>${item.name}</h3>
+      <div>Kar: ${item.profit}</div>
+      <div>Talep: ${item.demand}</div>
+      <div>Risk: ${item.risk}</div>
+      <button class="btn-danger" onclick="deleteListing(${item.id})">Sil</button>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+async function deleteListing(id){
+  await fetch("/delete-listing/"+id,{ method:"DELETE" });
+  loadListings();
+}
+
+async function analyzeProduct(item){
+  try{
+    setStatus("AI analiz...");
+
+    const res = await fetch("/analyze",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body:JSON.stringify(item)
+    });
+
+    const data = await res.json();
+
+    if(data.error){
+      alert("Hata: "+data.error);
+      return;
+    }
+
+    alert(data.result);
+
+    setStatus("Analiz tamamlandı");
+  }catch(err){
+    alert("Hata: "+err.message);
+  }
+}
 </script>
 
 </body>
