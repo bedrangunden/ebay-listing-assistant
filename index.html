@@ -12,12 +12,19 @@
       margin: 0;
       padding: 20px;
     }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+
     .card {
       background: #1e293b;
       border-radius: 16px;
       padding: 16px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
+
     input, button {
       width: 100%;
       padding: 14px;
@@ -25,18 +32,46 @@
       border: none;
       margin-top: 8px;
       font-size: 16px;
+      box-sizing: border-box;
     }
-    input { background: #334155; color: white; }
+
+    input {
+      background: #334155;
+      color: white;
+    }
+
     button {
       background: #7c3aed;
       color: white;
       font-weight: bold;
+      cursor: pointer;
     }
-    .muted { color: #cbd5e1; font-size: 14px; }
+
+    .muted {
+      color: #cbd5e1;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .top-actions button {
+      width: auto;
+      flex: 1;
+    }
   </style>
 </head>
 <body>
   <h1>eBay Listing Assistant</h1>
+
+  <div class="top-actions">
+    <button onclick="showSearch()">Ürün Ara</button>
+    <button onclick="loadListings()">Listem</button>
+  </div>
 
   <div class="card">
     <div>Ürün ara</div>
@@ -56,17 +91,64 @@
       results.innerHTML = "";
 
       data.forEach(item => {
-  const el = document.createElement("div");
-  el.className = "card";
-  el.innerHTML = `
-    <h3>${item.name}</h3>
-    <div class="muted">Kar: ${item.profit}</div>
-    <div class="muted">Talep: ${item.demand}</div>
-    <div class="muted">Risk: ${item.risk}</div>
-    <button onclick="alert('Eklendi: ${item.name}')">Listeye ekle</button>
-  `;
-  results.appendChild(el);
-});
+        const el = document.createElement("div");
+        el.className = "card";
+        el.innerHTML = `
+          <h3>${item.name}</h3>
+          <div class="muted">Kar: ${item.profit}</div>
+          <div class="muted">Talep: ${item.demand}</div>
+          <div class="muted">Risk: ${item.risk}</div>
+          <button onclick='addListing(${JSON.stringify(item)})'>Listeye ekle</button>
+        `;
+        results.appendChild(el);
+      });
+    }
+
+    async function addListing(item) {
+      const res = await fetch("/add-listing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(item)
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert("Listeye eklendi: " + item.name);
+      } else {
+        alert("Hata: " + data.error);
+      }
+    }
+
+    async function loadListings() {
+      const res = await fetch("/listings");
+      const data = await res.json();
+
+      const results = document.getElementById("results");
+      results.innerHTML = "<h2>Kaydedilen Ürünler</h2>";
+
+      if (!data.length) {
+        results.innerHTML += `<div class="card">Henüz ürün eklenmedi.</div>`;
+        return;
+      }
+
+      data.forEach(item => {
+        const el = document.createElement("div");
+        el.className = "card";
+        el.innerHTML = `
+          <h3>${item.name}</h3>
+          <div class="muted">Kar: ${item.profit}</div>
+          <div class="muted">Talep: ${item.demand}</div>
+          <div class="muted">Risk: ${item.risk}</div>
+        `;
+        results.appendChild(el);
+      });
+    }
+
+    function showSearch() {
+      document.getElementById("results").innerHTML = "";
     }
   </script>
 </body>
